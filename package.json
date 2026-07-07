@@ -1,0 +1,36 @@
+{
+  "name": "segin-web",
+  "version": "1.0.0",
+  "description": "SegIn em Node.js: governanca local de ativos, NetBox, Samba e auditoria.",
+  "type": "commonjs",
+  "main": "src/server.js",
+  "bin": {
+    "segin": "src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "NODE_ENV=development node src/server.js",
+    "init-db": "node src/cli.js init-db",
+    "create-admin": "node src/cli.js create-admin",
+    "create-demo-data": "node src/cli.js create-demo-data",
+    "status": "node src/cli.js status",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "connect-session-sequelize": "^7.1.7",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "express-session": "^1.18.0",
+    "helmet": "^7.1.0",
+    "mysql2": "^3.11.0",
+    "pg": "^8.12.0",
+    "sequelize": "^6.37.3",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=20 <26"
+  }
+}

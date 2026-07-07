@@ -1,0 +1,128 @@
+services:
+  netbox-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: netbox
+      POSTGRES_USER: netbox
+      POSTGRES_PASSWORD: netbox
+    volumes:
+      - netbox_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U netbox -d netbox"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  netbox-redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "redispass"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redispass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  netbox-redis-cache:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "redispass"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redispass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  netbox:
+    image: netboxcommunity/netbox:latest
+    depends_on:
+      netbox-postgres:
+        condition: service_healthy
+      netbox-redis:
+        condition: service_healthy
+      netbox-redis-cache:
+        condition: service_healthy
+    environment:
+      ALLOWED_HOSTS: "*"
+      DB_HOST: netbox-postgres
+      DB_NAME: netbox
+      DB_USER: netbox
+      DB_PASSWORD: netbox
+      REDIS_HOST: netbox-redis
+      REDIS_PASSWORD: redispass
+      REDIS_DATABASE: 0
+      REDIS_CACHE_HOST: netbox-redis-cache
+      REDIS_CACHE_PASSWORD: redispass
+      REDIS_CACHE_DATABASE: 1
+      SECRET_KEY: "dev-only-netbox-secret-key-change-me-please-1234567890"
+      API_TOKEN_PEPPER_1: "dev-only-netbox-token-pepper-change-me-please-1234567890"
+      SUPERUSER_NAME: admin
+      SUPERUSER_EMAIL: admin@local
+      SUPERUSER_PASSWORD: admin123
+      SUPERUSER_API_KEY: "seginweb0001"
+      SUPERUSER_API_TOKEN: "0123456789abcdef0123456789abcdef01234567"
+      SKIP_SUPERUSER: "false"
+    ports:
+      - "${NETBOX_PORT:-18080}:8080"
+    volumes:
+      - netbox_media:/opt/netbox/netbox/media
+      - netbox_reports:/opt/netbox/netbox/reports
+      - netbox_scripts:/opt/netbox/netbox/scripts
+
+  samba:
+    build:
+      context: .
+      dockerfile: docker/samba/Dockerfile
+    environment:
+      SAMBA_SHARE_NAME: segin
+      SAMBA_SHARE_PATH: /share
+      SAMBA_USERNAME: segin_smb
+      SAMBA_PASSWORD: segin123
+      SAMBA_WORKGROUP: WORKGROUP
+    ports:
+      - "${SAMBA_PORT:-1445}:445"
+    volumes:
+      - samba_data:/share
+    healthcheck:
+      test: ["CMD-SHELL", "smbclient -L //localhost -U segin_smb%segin123 -m SMB3 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  segin:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      samba:
+        condition: service_healthy
+      netbox:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      SESSION_SECURE_COOKIE: "false"
+      SESSION_SECRET: "dev-only-segin-session-secret-change-me-please-1234567890"
+      SEGIN_DB_URL: sqlite:/app/data/segin.sqlite3
+      SEGIN_ADMIN_USERNAME: admin
+      SEGIN_ADMIN_EMAIL: admin@local
+      SEGIN_ADMIN_FULL_NAME: Administrador
+      SEGIN_ADMIN_PASSWORD: admin123
+      NETBOX_URL: http://netbox:8080
+      NETBOX_TOKEN: "nbt_seginweb0001.0123456789abcdef0123456789abcdef01234567"
+      NETBOX_TOKEN_SCHEME: auto
+      SAMBA_HOST: samba
+      SAMBA_USERNAME: segin_smb
+      SAMBA_PASSWORD: segin123
+      SAMBA_WORKGROUP: WORKGROUP
+    ports:
+      - "${SEGIN_PORT:-3000}:3000"
+    volumes:
+      - segin_data:/app/data
+
+volumes:
+  netbox_postgres_data:
+  netbox_media:
+  netbox_reports:
+  netbox_scripts:
+  samba_data:
+  segin_data:
